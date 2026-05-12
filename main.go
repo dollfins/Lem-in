@@ -4,95 +4,186 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
 
+type Path []string
 type Ant struct {
-	ID  int
-	Pos int
+	ID, Pos int
+	Path    Path
 }
 
-func addEdge(struc map[string][]string, x, y string) {
-	struc[x] = append(struc[x], y)
-	struc[y] = append(struc[y], x)
+func add(g map[string][]string, a, b string) {
+	g[a] = append(g[a], b)
+	g[b] = append(g[b], a)
 }
 
-func pathWays(struc map[string][]string, start string, end string) string {
-	bfs := start
-	for string(bfs[len(bfs)-1]) != end {
-		for _, n := range struc[string(bfs[len(bfs)-1])] {
-			if strings.Contains(bfs, n) {
-				continue
-			} else {
-				bfs += n
-			}
+func dfs(g map[string][]string, v, end string, vis map[string]bool, p Path, out *[]Path) {
+	vis[v] = true
+	p = append(p, v)
+	if v == end {
+		*out = append(*out, append(Path{}, p...))
+		vis[v] = false
+		return
+	}
+	for _, n := range g[v] {
+		if !vis[n] {
+			dfs(g, n, end, vis, p, out)
 		}
 	}
-	return bfs
+	vis[v] = false
+}
+
+func interceptPath(a, b Path) bool {
+	m := map[string]bool{}
+	for i := 1; i < len(a)-1; i++ {
+		m[a[i]] = true
+	}
+	for i := 1; i < len(b)-1; i++ {
+		if m[b[i]] {
+			return true
+		}
+	}
+	return false
+}
+
+func pathSelection(ps []Path) []Path {
+	sort.Slice(ps, func(i, j int) bool { return len(ps[i]) < len(ps[j]) })
+	var r []Path
+	for _, p := range ps {
+		ok := true
+		for _, x := range r {
+			if interceptPath(p, x) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			r = append(r, p)
+		}
+	}
+	return r
 }
 
 func main() {
-	file, err := os.ReadFile("test1.txt")
-	if err != nil {
-		fmt.Println("Error", err)
-		return
-	}
-	antsNum, err := strconv.Atoi(string(file[0]))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	b, _ := os.ReadFile("test1.txt")
+	l := strings.Split(strings.TrimSpace(string(b)), "\n")
 
+	n, _ := strconv.Atoi(l[0])
 	re := regexp.MustCompile(`^\d+-\d+$`)
-	slicedFile := strings.Split(string(file), "\n")
-	struc := make(map[string][]string)
-	var start string
-	var end string
 
-	for i, line := range slicedFile {
-		if string(line) == "##start" {
-			start = string(slicedFile[i+1][0])
-		} else if string(line) == "##end" {
-			end = string(slicedFile[i+1][0])
+	g := map[string][]string{}
+	var s, e string
+
+	for i, v := range l {
+		if v == "##start" {
+			s = l[i+1]
+			if s != "" {
+				s = strings.Fields(l[i+1])[0]
+			} else {
+				fmt.Println("Error, empty ##start")
+				return
+			}
 		}
-		if re.MatchString(line) {
-			addEdge(struc, string(line[0]), string(line[2]))
+		if v == "##end" {
+			e = l[i+1]
+			if e != "" {
+				e = strings.Fields(l[i+1])[0]
+			} else {
+				fmt.Println("Error, empty ##end")
+				return
+			}
+		}
+		if re.MatchString(v) {
+			p := strings.Split(v, "-")
+			add(g, p[0], p[1])
+		}
+		if re.MatchString(v) {
+			p := strings.Split(v, "-")
+			if len(p) != 2 || p[0] == "" || p[1] == "" {
+				fmt.Println("Error: invalid coordinate line:", v)
+				return
+			}
+			add(g, p[0], p[1])
 		}
 	}
-	path := pathWays(struc, start, end)
-	ants := make([]Ant, antsNum)
 
-	for i := 0; i < antsNum; i++ {
-		ants[i] = Ant{
-			ID:  i + 1,
-			Pos: 0,
+	var all []Path
+	dfs(g, s, e, map[string]bool{}, nil, &all)
+
+	if _, ok := g[s]; !ok {
+		fmt.Println("Error: start node not in graph")
+		return
+	}
+
+	if _, ok := g[e]; !ok {
+		fmt.Println("Error: pathway is empty")
+		return
+	}
+
+	if len(all) < 1 {
+		fmt.Println("Error: end node not in graph")
+		return
+	}
+
+	min := len(all[0])
+	for _, p := range all {
+		if len(p) < min {
+			min = len(p)
 		}
 	}
 
-	finished := 0
+	var short []Path
+	for _, p := range all {
+		if len(p) == min {
+			short = append(short, p)
+		}
+	}
 
-	for finished < len(ants) {
-		occupied := make(map[int]bool)
+	paths := pathSelection(short)
+
+	ants := []Ant{}
+	next := 1
+	done := 0
+
+	for done < n {
+		occ := map[string]bool{}
+		var out []string
 
 		for i := range ants {
-			ant := &ants[i]
-			if ant.Pos == len(path)-1 {
+			a := &ants[i]
+			if a.Pos >= len(a.Path)-1 {
 				continue
 			}
-			next := ant.Pos + 1
-			if next != len(path)-1 && occupied[next] {
+			nr := a.Path[a.Pos+1]
+			if nr != e && occ[nr] {
 				continue
 			}
-
-			occupied[next] = true
-			ant.Pos = next
-			fmt.Printf("L%d-%s ", ant.ID, string(path[next]))
-
-			if ant.Pos == len(path)-1 {
-				finished++
+			occ[nr] = true
+			a.Pos++
+			out = append(out, fmt.Sprintf("L%d-%s", a.ID, nr))
+			if nr == e {
+				done++
 			}
 		}
-		fmt.Println()
+
+		for _, p := range paths {
+			if next > n {
+				break
+			}
+			if occ[p[1]] {
+				continue
+			}
+			occ[p[1]] = true
+			ants = append(ants, Ant{next, 1, p})
+			out = append(out, fmt.Sprintf("L%d-%s", next, p[1]))
+			next++
+		}
+
+		if len(out) > 0 {
+			fmt.Println(strings.Join(out, " "))
+		}
 	}
 }
