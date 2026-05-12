@@ -119,12 +119,12 @@ func main() {
 	}
 
 	if _, ok := g[e]; !ok {
-		fmt.Println("Error: pathway is empty")
+		fmt.Println("rror: end node not in graph")
 		return
 	}
 
 	if len(all) < 1 {
-		fmt.Println("Error: end node not in graph")
+		fmt.Println("Error: pathway is empty")
 		return
 	}
 
