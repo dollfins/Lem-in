@@ -180,8 +180,6 @@ func main() {
 		return
 	}
 
-	fmt.Println(allPathWays)
-
 	sort.Slice(allPathWays, func(i, j int) bool {
 		return len(allPathWays[i]) < len(allPathWays[j])
 	})
