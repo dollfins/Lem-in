@@ -104,7 +104,7 @@ func main() {
 		return
 	}
 
-	if _, ok := file; !ok {
+	if len(file) == 0 {
 		fmt.Println("Error: Empty File Content")
 		return
 	}
