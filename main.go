@@ -98,7 +98,7 @@ func main() {
 		return
 	}
 	filePath := os.Args[1]
-	file, err := os.ReadFile(filePath + ".txt")
+	file, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
